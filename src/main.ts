@@ -10,7 +10,7 @@ import kaboom, {
 } from "kaboom"
 
 const k = kaboom({
-	canvas: document.querySelector("#game"),
+	canvas: document.querySelector("#gaeme"),
 	font: "happy",
 })
 
@@ -36,8 +36,8 @@ const GUN_DMG = 100
 const DIZZY_SPEED = 1000
 const MAX_EXP_INIT = 10
 const MAX_EXP_STEP = 5
-const BOSS_MARK = 3000
-const BOSS_MARK_STEP = 3000
+const BOSS_MARK = 20
+const BOSS_MARK_STEP = 20
 const TOUCH_SPEED = 40
 
 const colors = {
@@ -67,6 +67,8 @@ const sprites = [
 	"gun",
 	"heart",
 	"trumpet",
+    "coin",
+    "lightening",
 	"!",
 ]
 
@@ -741,6 +743,7 @@ function initGame() {
 		])
 		boss.onDeath(() => {
 			isBossFighting = false
+            addLightening(this.pos)
 			music.paused = true
 			music = k.play("music", { loop: true })
 		})
@@ -861,6 +864,43 @@ function initGame() {
 			"heart",
 		])
 	}
+    
+    function addCoin(pos: Vec2) {
+		return game.add([
+			k.pos(pos),
+			k.scale(),
+			k.anchor("center"),
+			k.sprite("coin"),
+			k.area(),
+			bounce({ keep: true }),
+			"coin",
+		])
+	}
+
+    bean.onCollide("coin", (c) => {
+		k.play("powerup"),
+        setScore((s) => s + 1)
+        bean.heal(10)
+		c.destroy()
+	})
+
+    function addLightening(pos: Vec2) {
+		return game.add([
+			k.pos(pos),
+			k.scale(),
+			k.anchor("center"),
+			k.sprite("coin"),
+			k.area(),
+			bounce({ keep: true }),
+			"lightening",
+		])
+	}
+
+    bean.onCollide("lightening", (c) => {
+		k.play("powerup"),
+        setScore((s) => s + 20)
+		c.destroy()
+	})
 
 	function addBar(pos, width, color, sprite, getPerc) {
 
@@ -948,9 +988,8 @@ function initGame() {
 				this.onDeath(() => {
 					this.destroy()
 					k.addKaboom(this.pos)
-					setScore((s) => s + (this.is("boss") ? 2000 : 100))
 					if (score >= bossMark) {
-						bossMark += BOSS_MARK_STEP + 2000
+						bossMark += BOSS_MARK_STEP + 20
 						spawnGigagantrum()
 					}
 					exp += opts.exp ?? 1
@@ -961,7 +1000,11 @@ function initGame() {
 					}
 					if (k.chance(0.2)) {
 						addHeart(this.pos)
+                        return;
 					}
+                    if (k.chance(0.5)) {
+                        addCoin(this.pos)
+                    }
 				})
 			},
 		}
