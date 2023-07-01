@@ -102,6 +102,8 @@ const sounds = [
 	"mystic",
 	"error",
 	"horn",
+    "bitcoin",
+    "chaching"
 ]
 
 for (const snd of sounds) {
@@ -705,6 +707,7 @@ function initGame() {
 		if (isBossFighting) return
 		isBossFighting = true
 		const minions = game.get("minion")
+        k.play("bitcoin")
 		for (const m of minions) {
 			m.paused = true
 			game.add([
@@ -878,7 +881,7 @@ function initGame() {
 	}
 
     bean.onCollide("coin", (c) => {
-		k.play("powerup"),
+		k.play("chaching"),
         setScore((s) => s + 1)
         bean.heal(10)
 		c.destroy()
@@ -897,7 +900,7 @@ function initGame() {
 	}
 
     bean.onCollide("lightening", (c) => {
-		k.play("powerup"),
+		k.play("chaching"),
         setScore((s) => s + 20)
 		c.destroy()
 	})
@@ -989,7 +992,7 @@ function initGame() {
 					this.destroy()
 					k.addKaboom(this.pos)
 					if (score >= bossMark) {
-						bossMark += BOSS_MARK_STEP + 20
+						bossMark += BOSS_MARK_STEP
 						spawnGigagantrum()
 					}
 					exp += opts.exp ?? 1
@@ -1003,7 +1006,7 @@ function initGame() {
                         return;
 					}
                     if (k.chance(0.5)) {
-                        addCoin(this.pos)
+                        this.is("boss") ? addLightening(this.pos) : addCoin(this.pos)
                     }
 				})
 			},
