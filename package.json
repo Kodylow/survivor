@@ -1,6 +1,7 @@
 {
 	"name": "survivor",
 	"scripts": {
+		"start": "ts-node ./server.ts",
 		"build": "esbuild --bundle src/main.ts --outfile=www/main.js --minify",
 		"dev": "esbuild --bundle src/main.ts --outfile=www/main.js --servedir=www",
 		"bundle": "npm run build && mkdir -p dist && zip -r dist/game.zip www -x \"**/.DS_Store\"",
@@ -9,11 +10,13 @@
 		"build:desktop": "tauri build"
 	},
 	"dependencies": {
+		"@replit/database": "^2.0.4",
 		"@zbd/node": "^0.6.2",
 		"axios": "^1.4.0",
 		"concurrently": "^8.2.0",
 		"cors": "^2.8.5",
 		"express": "^4.18.2",
+		"express-session": "^1.17.3",
 		"kaboom": "^3000.0.14",
 		"qrcode": "^1.5.3",
 		"url": "^0.11.1"
@@ -21,6 +24,7 @@
 	"devDependencies": {
 		"@tauri-apps/cli": "^1.4.0",
 		"esbuild": "^0.18.6",
+		"ts-node": "^10.9.1",
 		"typescript": "^5.1.3"
 	}
 }

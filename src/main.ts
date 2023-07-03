@@ -8,7 +8,6 @@ import kaboom, {
 	TimerComp,
 	ColorComp,
 } from "kaboom"
-// import { ZBD_API_KEY } from "../secrets"
 
 // Keep constants in one place so we can tweak them easily
 const SPEED = 320
@@ -229,6 +228,26 @@ function initDeath(sats) {
     }))
 
     const lightningAddress = localStorage.getItem("lightningAddress") ? localStorage.getItem("lightningAddress") : prompt("Please enter your lightning address:");
+
+    k.load(new Promise(async (resolve, reject) => {
+        try {
+            const [username, domain] = lightningAddress.split("@");
+            const res = await fetch(`https://${domain}/.well-known/lnurlp/${username}`);
+            // if returns callback in json, it's a valid lightning address
+            const json = await res.json()
+            if (json.callback) {
+                localStorage.setItem("lightningAddress", lightningAddress)
+                resolve()
+            } else {
+                alert("Invalid lightning address. Please try again.")
+                reject(e)
+            }
+        } catch (e) {
+            alert("Invalid lightning address. Please try again.")
+            reject(e)
+        }
+    }));
+    
     localStorage.setItem("lightningAddress", lightningAddress);
 
     function addItem(x, sats, action) {
@@ -252,17 +271,16 @@ function initDeath(sats) {
     if (sats > 0 && lightningAddress) {
         k.load(new Promise(async (resolve, reject) => {
             try {
-              const response = await fetch("https://api.zebedee.io/v0/ln-address/send-payment", {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'apikey': ZBD_API_KEY
-              },
-              body: JSON.stringify({
-                amount: sats*1000, // in millisatoshis
-                lnAddress: lightningAddress,
+              const response = await fetch("/payment", {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  amount: sats*1000, // in millisatoshis
+                  lnAddress: lightningAddress,
+                })
               })
-            });
             
             const data = await response.json();
             

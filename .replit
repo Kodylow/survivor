@@ -1,0 +1,41 @@
+language = "kaboom"
+run = "npm i && npm run build && npm run start"
+entrypoint = "code/main.js"
+
+hidden = [
+	".config",
+	"learn",
+	"dist",
+	"helper.ts",
+	"run.js",
+	"package.json",
+	"package-lock.json",
+]
+
+[nix]
+channel = "stable-23_05"
+
+[packager]
+language="nodejs"
+
+[packager.features]
+packageSearch = true
+
+[languages]
+
+[languages.typescript]
+pattern = "**/{*.ts,*.js,*.tsx,*.jsx}"
+
+[languages.typescript.languageServer]
+start = "typescript-language-server --stdio"
+
+
+[deployment]
+run = ["sh", "-c", "npm run start"]
+ignorePorts = false
+deploymentTarget = "gce"
+build = ["sh", "-c", "npm install && npm run build "]
+
+[auth]
+pageEnabled = true
+buttonEnabled = false
