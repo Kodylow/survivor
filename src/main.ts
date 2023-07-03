@@ -8,11 +8,7 @@ import kaboom, {
 	TimerComp,
 	ColorComp,
 } from "kaboom"
-
-const k = kaboom({
-	canvas: document.querySelector("#gaeme"),
-	font: "happy",
-})
+// import { ZBD_API_KEY } from "../secrets"
 
 // Keep constants in one place so we can tweak them easily
 const SPEED = 320
@@ -30,7 +26,7 @@ const DINO_BULLET_SPEED = 400
 const BTFLY_SPEED = 300
 const DINO_SPEED = 80
 const GIGAGANTRUM_SPEED = 200
-const BAG_SPEED = 60
+const BEAR_SPEED = 60
 const SWORD_DMG = 150
 const GUN_DMG = 100
 const DIZZY_SPEED = 1000
@@ -39,6 +35,14 @@ const MAX_EXP_STEP = 5
 const BOSS_MARK = 20
 const BOSS_MARK_STEP = 20
 const TOUCH_SPEED = 40
+let score = 0
+let gameDifficulty = 0
+
+const k = kaboom({
+	canvas: document.querySelector("#game"),
+	font: "happy",
+    })
+
 
 const colors = {
 	red: k.rgb(204, 66, 94),
@@ -55,33 +59,30 @@ k.setBackground(k.black)
 
 const sprites = [
 	"title",
-	"bean",
-	"bag",
+	"wiz",
+	"bear",
 	"dino",
-	"btfly",
+	"whale",
 	"gigagantrum",
 	"hpbar",
 	"expbar",
 	"toolbar",
-	"sword",
+	"greencandle",
 	"gun",
 	"heart",
 	"trumpet",
     "coin",
     "lightening",
+    "sword",
 	"!",
+    "bearclub",
+    "fiat",
+    "stars"
 ]
 
-const aseprites = [
-	"field",
-]
 
 for (const spr of sprites) {
 	k.loadSprite(spr, `sprites/${spr}.png`)
-}
-
-for (const spr of aseprites) {
-	k.loadAseprite(spr, `sprites/${spr}.png`, `sprites/${spr}.json`)
 }
 
 k.loadBitmapFont("happy", "sprites/happy_28x36.png", 28, 36, {
@@ -103,23 +104,25 @@ const sounds = [
 	"error",
 	"horn",
     "bitcoin",
-    "chaching"
+    "chaching",
+    "zap",
+    "nosecondbest",
+    "weprintmoney",
+    "brr"
 ]
 
 for (const snd of sounds) {
 	k.loadSound(snd, `sounds/${snd}.mp3`)
 }
 
-let music = k.play("music", {
-	loop: true,
-})
+let music = k.play("bitcoin");
 
 // Add the background tiles
 for (let i = 0; i < WIDTH / TILE_WIDTH; i++) {
 	for (let j = 0; j < HEIGHT / TILE_HEIGHT; j++) {
 		k.add([
 			k.pos(j * TILE_WIDTH, i * TILE_HEIGHT ),
-			k.sprite("field", { frame: k.randi(0, 4) }),
+			k.sprite("stars"),
 		])
 	}
 }
@@ -135,8 +138,6 @@ function makeFilter() {
 }
 
 function initTitle() {
-	music.paused = true
-	music = k.play("music", { loop: true })
 	const scene = k.add([])
 	scene.add(makeFilter())
 	const title = scene.add([
@@ -186,10 +187,109 @@ function initTitle() {
 	return scene
 }
 
+function initDeath(sats) {
+    gameDifficulty = 0
+    score = 0
+    music.paused = true
+    music = k.play("music", { loop: true })
+    const scene = k.add([])
+    scene.add(makeFilter())
+    const text = k.make([
+        k.text("Stay Humble and Keep Stacking!", { size: 24 }),
+        k.anchor("center"),
+        k.fixed(),
+        k.opacity(),
+    ])
+    const box = scene.add([
+        k.rect(text.width + 24, text.height + 24, { radius: 8 }),
+        k.pos(k.center().add(0, 170)),
+        k.anchor("center"),
+        k.color(colors.black),
+        k.fixed(),
+        k.opacity(),
+    ])
+    box.onUpdate(() => {
+        box.width = text.width + 24
+        box.height = text.height + 24
+        box.opacity = k.wave(0, 1, k.time() * 6)
+        text.opacity = k.wave(0, 1, k.time() * 6)
+    })
+    box.add(text)
+    const evs = []
+    scene.onDestroy(() => {
+        evs.forEach((ev) => ev.cancel())
+    })
+    evs.push(k.onKeyPress("space", () => {
+        scene.destroy()
+        initGame()
+    }))
+    evs.push(k.onClick(() => {
+        scene.destroy()
+        initGame()
+    }))
+
+    const lightningAddress = localStorage.getItem("lightningAddress") ? localStorage.getItem("lightningAddress") : prompt("Please enter your lightning address:");
+    localStorage.setItem("lightningAddress", lightningAddress);
+
+    function addItem(x, sats, action) {
+        const box = scene.add([
+            k.rect(280, 80, { radius: 4, }),
+            k.color(colors.black),
+            k.outline(4),
+            k.fixed(),
+            k.anchor("center"),
+            k.pos(x, 120),
+            k.scale(2),
+            k.area(),
+        ])
+
+        box.add([
+            k.text(`Swept ${sats} sats to your address!`, { size: 24 }),
+            k.fixed(),
+            k.anchor("center"),
+        ])
+    }
+    if (sats > 0 && lightningAddress) {
+        k.load(new Promise(async (resolve, reject) => {
+            try {
+              const response = await fetch("https://api.zebedee.io/v0/ln-address/send-payment", {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': ZBD_API_KEY
+              },
+              body: JSON.stringify({
+                amount: sats*1000, // in millisatoshis
+                lnAddress: lightningAddress,
+              })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+              console.log(data);
+              console.log(`Sats swept successfully: ${data}`);
+              resolve("ok");
+            } else {
+              console.log(data);
+              console.log(`Sat sweep unsuccessful: ${data}`);
+              reject(data);
+            }
+            } catch (err) {
+            console.error(`Failed to sweep sats: ${err}`);
+            reject(err);
+            }
+        }));
+    }
+  
+    return scene
+}
+
 initTitle()
 
 function initGame() {
-
+    music.paused = true
+	music = k.play("music", { loop: true })
 	// All objects in the main game scene will all be children of this "game" game
 	// object, so can more easily manage them. For example, we just need to toggle
 	// game.paused to pause everything, useful for menues and stuff.
@@ -227,7 +327,7 @@ function initGame() {
 	// Add our main character
 	const bean = game.add([
 		k.pos(WIDTH / 2, HEIGHT / 2),
-		k.sprite("bean"),
+		k.sprite("wiz"),
 		k.anchor("center"),
 		k.area({ scale: 0.8 }),
 		k.health(100),
@@ -342,7 +442,7 @@ function initGame() {
 				k.outline(4, colors.black),
 				k.pos(gun.worldPos().add(16, -8)),
 				k.move(k.RIGHT, BULLET_SPEED),
-				k.color(colors.grey),
+				k.color(colors.green),
 				k.lifespan(10),
 				k.area(),
 				"bullet",
@@ -363,7 +463,7 @@ function initGame() {
 					k.outline(4, colors.black),
 					k.pos(gun.worldPos().add(-16, -8)),
 					k.move(k.LEFT, BULLET_SPEED),
-					k.color(colors.grey),
+					k.color(colors.green),
 					k.lifespan(10),
 					k.area(),
 					"bullet",
@@ -491,11 +591,12 @@ function initGame() {
 		e.destroy()
 	})
 
-	bean.onDeath(() => {
+	bean.onDeath(async () => {
 		game.paused = true
+        music.paused = true
 		hurtSnd.paused = true
-		game.destroy()
-		initTitle()
+        game.destroy()
+		initDeath(score)
 	})
 
 	const dirs = {
@@ -535,10 +636,10 @@ function initGame() {
 		return bean.pos.add(k.rand(-400, 400), k.rand(-400, 400))
 	}
 
-	function spawnBag() {
-		const bag = game.add([
+	function spawnBear() {
+		const bear = game.add([
 			k.pos(getSpawnPos()),
-			k.sprite("bag"),
+			k.sprite("bear"),
 			k.anchor("center"),
 			k.scale(),
 			k.rotate(0),
@@ -548,46 +649,46 @@ function initGame() {
 			k.timer(),
 			k.color(),
 			bounce(),
-			enemy({ dmg: 50 }),
+			enemy({ dmg: 50 +  gameDifficulty}),
 			"minion",
 		])
-		bag.onStateUpdate("move", async () => {
-			const dir = bean.pos.sub(bag.pos).unit()
-			bag.move(dir.scale(BAG_SPEED))
+		bear.onStateUpdate("move", async () => {
+			const dir = bean.pos.sub(bear.pos).unit()
+			bear.move(dir.scale(BEAR_SPEED))
 		})
-		bag.onStateEnter("dizzy", async () => {
-			await bag.wait(2)
-			if (bag.state !== "dizzy") return
-			bag.enterState("move")
+		bear.onStateEnter("dizzy", async () => {
+			await bear.wait(2)
+			if (bear.state !== "dizzy") return
+			bear.enterState("move")
 		})
-		bag.onStateUpdate("dizzy", async () => {
-			bag.angle += k.dt() * DIZZY_SPEED
+		bear.onStateUpdate("dizzy", async () => {
+			bear.angle += k.dt() * DIZZY_SPEED
 		})
-		bag.onStateEnd("dizzy", async () => {
-			bag.angle = 0
+		bear.onStateEnd("dizzy", async () => {
+			bear.angle = 0
 		})
-		// bag.add([
+		// bear.add([
 			// k.rect(40, 8, { radius: 4 }),
 			// k.color(colors.black),
 			// k.pos(-20, -40),
 		// ])
-		// bag.add([
+		// bear.add([
 			// k.rect(40, 8, { radius: 4 }),
 			// k.color(colors.green),
 			// k.pos(-20, -40),
 		// ])
-		// bag.add([
+		// bear.add([
 			// k.rect(40, 8, { radius: 4 }),
 			// k.outline(4, colors.black),
 			// k.pos(-20, -40),
 		// ])
-		return bag
+		return bear
 	}
 
 	function spawnBtfly() {
 		const btfly = game.add([
 			k.pos(getSpawnPos()),
-			k.sprite("btfly"),
+			k.sprite("whale"),
 			k.anchor("center"),
 			k.scale(),
 			k.rotate(0),
@@ -597,7 +698,7 @@ function initGame() {
 			k.timer(),
 			k.color(),
 			bounce(),
-			enemy({ dmg: 50 }),
+			enemy({ dmg: 50 + gameDifficulty}),
 			"minion",
 		])
 		btfly.onUpdate(() => {
@@ -638,17 +739,17 @@ function initGame() {
 	function spawnDino() {
 		const dino = game.add([
 			k.pos(getSpawnPos()),
-			k.sprite("dino"),
+			k.sprite("bearclub"),
 			k.anchor("center"),
 			k.scale(),
 			k.rotate(0),
-			k.area({ scale: 0.8 }),
+			k.area({ scale: 0.2 }),
 			k.state("idle"),
 			k.timer(),
 			k.health(100),
 			k.color(),
 			bounce(),
-			enemy({ dmg: 50 }),
+			enemy({ dmg: 50 + gameDifficulty}),
 			"minion",
 		])
 		dino.onUpdate(() => {
@@ -665,11 +766,11 @@ function initGame() {
 				k.outline(4, colors.black),
 				k.pos(dino.worldPos().add(dino.flipX ? -24 : 24, 4)),
 				k.move(dino.flipX ? k.LEFT : k.RIGHT, DINO_BULLET_SPEED),
-				k.color(colors.grey),
+				k.color(colors.red),
 				k.area(),
 				k.lifespan(10),
 				"enemybullet",
-				{ dmg: 20 },
+				{ dmg: 20 + gameDifficulty},
 			])
 			const dis = bean.pos.dist(dino.pos)
 			k.play("shoot", {
@@ -707,7 +808,6 @@ function initGame() {
 		if (isBossFighting) return
 		isBossFighting = true
 		const minions = game.get("minion")
-        k.play("bitcoin")
 		for (const m of minions) {
 			m.paused = true
 			game.add([
@@ -718,20 +818,24 @@ function initGame() {
 				k.lifespan(2, { fade: 0.5 }),
 				bounce(),
 			])
+            m.paused = false
 		}
 		await game.wait(2)
 		for (const m of minions) {
+            if (true){
+                break
+            }
 			k.addKaboom(m.pos)
 			m.destroy()
 		}
-		const maxHP = 2000
+		const maxHP = 2000 + 1000 * gameDifficulty
 		await game.wait(1)
-		k.play("mystic")
 		music.paused = true
-		music = k.play("music2", { loop: true })
+        music = k.play("weprintmoney")
+		music = k.play("brr", { loop: true })
 		const boss = game.add([
 			k.pos(getSpawnPos()),
-			k.sprite("gigagantrum"),
+			k.sprite("fiat"),
 			k.anchor("center"),
 			k.scale(),
 			k.rotate(0),
@@ -741,13 +845,14 @@ function initGame() {
 			k.health(maxHP),
 			k.color(),
 			bounce(),
-			enemy({ dmg: 80, exp: 20 }),
+			enemy({ dmg: 80 + 3 * gameDifficulty, exp: 20 }),
 			"boss",
 		])
 		boss.onDeath(() => {
 			isBossFighting = false
-            addLightening(this.pos)
 			music.paused = true
+            music = k.play("nosecondbest")
+            gameDifficulty += 1
 			music = k.play("music", { loop: true })
 		})
 		boss.onStateEnter("idle", async () => {
@@ -844,7 +949,8 @@ function initGame() {
 	game.loop(0.5, () => {
 		if (isBossFighting) return
 		k.choose([
-			spawnBag,
+			spawnBear
+,
 			spawnBtfly,
 			spawnDino,
 		])()
@@ -892,7 +998,7 @@ function initGame() {
 			k.pos(pos),
 			k.scale(),
 			k.anchor("center"),
-			k.sprite("coin"),
+			k.sprite("lightening"),
 			k.area(),
 			bounce({ keep: true }),
 			"lightening",
@@ -900,8 +1006,8 @@ function initGame() {
 	}
 
     bean.onCollide("lightening", (c) => {
-		k.play("chaching"),
-        setScore((s) => s + 20)
+		k.play("zap"),
+        setScore((s) => s + 2)
 		c.destroy()
 	})
 
@@ -943,13 +1049,13 @@ function initGame() {
 	const hpbar = addBar(k.vec2(24, 44), HPBAR_WIDTH, colors.green, "hpbar", () => bean.hp() / MAX_HP)
 	const expbar = addBar(k.vec2(24, 90), EXPBAR_WIDTH, colors.lightblue, "expbar", () => exp / maxExp)
 
-	let score = 0
+	
 	let exp = 0
 	let maxExp = MAX_EXP_INIT
 
 	function setScore(s: number | ((prev: number) => number)) {
 		score = typeof s === "number" ? s : s(score)
-		scoreLabel.text = score + ""
+		scoreLabel.text = score + " sats"
 		scoreLabel.highlight()
 	}
 
@@ -977,7 +1083,7 @@ function initGame() {
 	} = {}) {
 		return {
 			id: "enemy",
-			dmg: opts.dmg ?? 50,
+			dmg: opts.dmg ?? 50 + gameDifficulty,
 			update() {
 				this.color.r = k.lerp(this.color.r, 255, k.dt())
 				this.color.g = k.lerp(this.color.g, 255, k.dt())
@@ -1001,12 +1107,15 @@ function initGame() {
 						presentUpgrades()
 						maxExp += MAX_EXP_STEP
 					}
-					if (k.chance(0.2)) {
+                    if (this.is("boss")) {
+                        addLightening(this.pos)
+                    } 
+					else if (k.chance(0.2) && gameDifficulty < 10) {
 						addHeart(this.pos)
                         return;
 					}
-                    if (k.chance(0.5)) {
-                        this.is("boss") ? addLightening(this.pos) : addCoin(this.pos)
+                    else if (k.chance(0.5)) {
+                        addCoin(this.pos)
                     }
 				})
 			},
@@ -1046,7 +1155,12 @@ function initGame() {
 				action()
 				game.paused = false
 				scene.destroy()
-				k.burp()
+				k.play("bitcoin")
+                const coins = game.get("coin")
+                for (const m of coins) {
+        			k.addKaboom(m.pos)
+        			m.destroy()
+        		}
 			})
 		}
 		addItem(k.width() / 2, "sword", () => {
